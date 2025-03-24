@@ -21,12 +21,14 @@ contract Raffle is VRFConsumerBaseV2Plus {
     bytes32 private immutable i_keyHash;
     uint256 private immutable i_subscriptionId;
     uint32 private immutable i_callbackGasLimit;
+    address payable private s_recentWinner;
     /* Events */
 
     event RaffleEntered(address indexed player);
 
     /* Errors */
     error Raffle__SendMoreToEnterRaffle();
+    error Raffle__TransferFailed();
 
     constructor(
         uint256 entranceFee,
@@ -79,7 +81,16 @@ contract Raffle is VRFConsumerBaseV2Plus {
         uint256 requestId = s_vrfCoordinator.requestRandomWords(request);
     }
 
-    function fulfillRandomWords(uint256 requestId, uint256[] calldata randomWords) internal override {}
+    function fulfillRandomWords(uint256 requestId, uint256[] calldata randomWords) internal override {
+        uint256 indexOfWinner = randomWords[0] % s_players.length;
+        address payable recentWinner = s_players[indexOfWinner];
+        s_recentWinner = recentWinner;
+        (bool success,) = recentWinner.call{value: address(this).balance}("");
+
+        if (!success) {
+            revert Raffle__TransferFailed();
+        }
+    }
 
     /**
      * Getter Functions
