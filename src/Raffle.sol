@@ -15,7 +15,6 @@ contract Raffle is VRFConsumerBaseV2Plus {
     enum RaffleState {
         OPEN, // 0
         CALCULATING // 1
-
     }
 
     /* State Variables */
@@ -35,8 +34,9 @@ contract Raffle is VRFConsumerBaseV2Plus {
     /* Events */
 
     event RaffleEntered(address indexed player);
-
+    event WinnerPicked(address indexed winner);
     /* Errors */
+
     error Raffle__SendMoreToEnterRaffle();
     error Raffle__TransferFailed();
     error Raffle__RaffleNotOpen();
@@ -85,28 +85,42 @@ contract Raffle is VRFConsumerBaseV2Plus {
 
         s_raffleState = RaffleState.CALCULATING;
 
-        VRFV2PlusClient.RandomWordsRequest memory request = VRFV2PlusClient.RandomWordsRequest({
-            keyHash: i_keyHash,
-            subId: i_subscriptionId,
-            requestConfirmations: REQUEST_CONFIRMATIONS,
-            callbackGasLimit: i_callbackGasLimit,
-            numWords: NUM_WORDS,
-            extraArgs: VRFV2PlusClient._argsToBytes(
-                // Set nativePayment to true to pay for VRF requests with Sepolia ETH instead of LINK
-                VRFV2PlusClient.ExtraArgsV1({nativePayment: false})
-            )
-        });
+        VRFV2PlusClient.RandomWordsRequest memory request = VRFV2PlusClient
+            .RandomWordsRequest({
+                keyHash: i_keyHash,
+                subId: i_subscriptionId,
+                requestConfirmations: REQUEST_CONFIRMATIONS,
+                callbackGasLimit: i_callbackGasLimit,
+                numWords: NUM_WORDS,
+                extraArgs: VRFV2PlusClient._argsToBytes(
+                    // Set nativePayment to true to pay for VRF requests with Sepolia ETH instead of LINK
+                    VRFV2PlusClient.ExtraArgsV1({nativePayment: false})
+                )
+            });
 
         uint256 requestId = s_vrfCoordinator.requestRandomWords(request);
     }
 
-    function fulfillRandomWords(uint256 requestId, uint256[] calldata randomWords) internal override {
+    // CEI: Checks-Effects-Interactions Patterns
+    function fulfillRandomWords(
+        uint256 requestId,
+        uint256[] calldata randomWords
+    ) internal override {
+        // Checks
+        // require...
+
+        // Effects (Internal Contract State)
         uint256 indexOfWinner = randomWords[0] % s_players.length;
         address payable recentWinner = s_players[indexOfWinner];
         s_recentWinner = recentWinner;
         s_raffleState = RaffleState.OPEN;
+        s_players = new address payable[](0);
+        s_lastTimestamp = block.timestamp;
+        emit WinnerPicked(recentWinner);
 
-        (bool success,) = recentWinner.call{value: address(this).balance}("");
+        // Interactions - external contract interactions
+
+        (bool success, ) = recentWinner.call{value: address(this).balance}("");
 
         if (!success) {
             revert Raffle__TransferFailed();
