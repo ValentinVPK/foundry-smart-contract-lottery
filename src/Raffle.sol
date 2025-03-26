@@ -36,6 +36,7 @@ contract Raffle is VRFConsumerBaseV2Plus {
 
     event RaffleEntered(address indexed player);
     event WinnerPicked(address indexed winner);
+    event RequestedRaffleWinner(uint256 indexed requestId);
 
     /* Errors */
 
@@ -126,7 +127,10 @@ contract Raffle is VRFConsumerBaseV2Plus {
             )
         });
 
-        s_vrfCoordinator.requestRandomWords(request);
+        uint256 requestId = s_vrfCoordinator.requestRandomWords(request);
+
+        // This is redundant as the VRFCoordinatorV2_5Mock contract emits the event itself
+        emit RequestedRaffleWinner(requestId);
     }
 
     // CEI: Checks-Effects-Interactions Patterns
