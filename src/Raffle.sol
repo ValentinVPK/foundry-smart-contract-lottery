@@ -36,6 +36,7 @@ contract Raffle is VRFConsumerBaseV2Plus {
 
     event RaffleEntered(address indexed player);
     event WinnerPicked(address indexed winner);
+
     /* Errors */
 
     error Raffle__SendMoreToEnterRaffle();
